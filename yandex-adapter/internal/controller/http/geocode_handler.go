@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"yandex-adapter/internal/entity"
+	"yandex-adapter/internal/usecase/geocode"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 type GeocodeUseCase interface {
-	Get(ctx context.Context, req entity.GeocodeRequest) (entity.GeocodeResult, error)
+	Get(ctx context.Context, input geocode.Input) (geocode.Output, error)
 }
 
 type GeocodeHandler struct {
@@ -87,21 +88,21 @@ func (h *GeocodeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toResponseDTO(res))
 }
 
-func parseRequest(b geocodeRequestDTO) (entity.GeocodeRequest, error) {
+func parseRequest(b geocodeRequestDTO) (geocode.Input, error) {
 	if b.Lng == nil || b.Lat == nil {
-		return entity.GeocodeRequest{}, errors.New("lng and lat are required")
+		return geocode.Input{}, errors.New("lng and lat are required")
 	}
 	if *b.Lng < -180 || *b.Lng > 180 {
-		return entity.GeocodeRequest{}, errors.New("lng must be in [-180, 180]")
+		return geocode.Input{}, errors.New("lng must be in [-180, 180]")
 	}
 	if *b.Lat < -90 || *b.Lat > 90 {
-		return entity.GeocodeRequest{}, errors.New("lat must be in [-90, 90]")
+		return geocode.Input{}, errors.New("lat must be in [-90, 90]")
 	}
 
 	limit := defaultLimit
 	if b.Limit != nil {
 		if *b.Limit < 1 {
-			return entity.GeocodeRequest{}, errors.New("limit must be >= 1")
+			return geocode.Input{}, errors.New("limit must be >= 1")
 		}
 		limit = *b.Limit
 		if limit > maxLimit {
@@ -112,7 +113,7 @@ func parseRequest(b geocodeRequestDTO) (entity.GeocodeRequest, error) {
 	offset := 0
 	if b.Offset != nil {
 		if *b.Offset < 0 {
-			return entity.GeocodeRequest{}, errors.New("offset must be >= 0")
+			return geocode.Input{}, errors.New("offset must be >= 0")
 		}
 		offset = *b.Offset
 	}
@@ -121,11 +122,11 @@ func parseRequest(b geocodeRequestDTO) (entity.GeocodeRequest, error) {
 	if b.Kind != nil && *b.Kind != "" {
 		kind = entity.Kind(*b.Kind)
 		if !kind.Valid() {
-			return entity.GeocodeRequest{}, errors.New("kind must be one of: house, street, metro, district, locality")
+			return geocode.Input{}, errors.New("kind must be one of: house, street, metro, district, locality")
 		}
 	}
 
-	return entity.GeocodeRequest{
+	return geocode.Input{
 		Lng:    *b.Lng,
 		Lat:    *b.Lat,
 		Limit:  limit,
@@ -134,7 +135,7 @@ func parseRequest(b geocodeRequestDTO) (entity.GeocodeRequest, error) {
 	}, nil
 }
 
-func toResponseDTO(res entity.GeocodeResult) geocodeResponseDTO {
+func toResponseDTO(res geocode.Output) geocodeResponseDTO {
 	items := make([]geoObjectDTO, 0, len(res.Items))
 	for _, o := range res.Items {
 		items = append(items, geoObjectDTO{

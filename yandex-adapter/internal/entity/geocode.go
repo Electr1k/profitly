@@ -18,14 +18,6 @@ func (k Kind) Valid() bool {
 	return false
 }
 
-type GeocodeRequest struct {
-	Lng    float64
-	Lat    float64
-	Limit  int
-	Offset int
-	Kind   Kind
-}
-
 type GeoObject struct {
 	Name      string
 	Kind      string
@@ -40,11 +32,4 @@ type GeoObject struct {
 	Street   *string
 	House    *string
 	Other    *string
-}
-
-type GeocodeResult struct {
-	Items  []GeoObject
-	Total  int
-	Count  int
-	Offset int
 }

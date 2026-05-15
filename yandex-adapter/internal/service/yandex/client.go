@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"yandex-adapter/internal/entity"
 )
 
 type Config struct {
@@ -42,7 +44,12 @@ type GeocodeParams struct {
 	Kind    string
 }
 
-func (c *Client) Geocode(ctx context.Context, p GeocodeParams) (*GeocodeResponse, error) {
+type GeocodeResult struct {
+	Items []entity.GeoObject
+	Total int
+}
+
+func (c *Client) Geocode(ctx context.Context, p GeocodeParams) (GeocodeResult, error) {
 	q := url.Values{}
 	q.Set("apikey", c.apiKey)
 	q.Set("format", "json")
@@ -61,23 +68,23 @@ func (c *Client) Geocode(ctx context.Context, p GeocodeParams) (*GeocodeResponse
 	endpoint := c.baseURL + "?" + q.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
+		return GeocodeResult{}, fmt.Errorf("build request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
+		return GeocodeResult{}, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		return GeocodeResult{}, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var out GeocodeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		return GeocodeResult{}, fmt.Errorf("decode response: %w", err)
 	}
-	return &out, nil
+	return toGeocodeResult(&out), nil
 }
