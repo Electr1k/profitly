@@ -7,6 +7,8 @@ import (
 
 	"yandex-adapter/config"
 	httpctrl "yandex-adapter/internal/controller/http"
+	"yandex-adapter/internal/service/yandex"
+	geocodeuc "yandex-adapter/internal/usecase/geocode"
 )
 
 type App struct {
@@ -19,7 +21,17 @@ func New(cfg *config.Config, log *slog.Logger) *App {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	router := httpctrl.NewRouter()
+	yandexClient := yandex.NewClient(yandex.Config{
+		APIKey:  a.cfg.Yandex.APIKey,
+		BaseURL: a.cfg.Yandex.BaseURL,
+		Lang:    a.cfg.Yandex.Lang,
+		Timeout: a.cfg.Yandex.Timeout,
+	})
+
+	geocodeUC := geocodeuc.New(yandexClient)
+	geocodeHandler := httpctrl.NewGeocodeHandler(geocodeUC, a.log)
+
+	router := httpctrl.NewRouter(geocodeHandler)
 	server := httpctrl.NewServer(a.cfg.HttpServer, router)
 
 	serverErr := make(chan error, 1)
