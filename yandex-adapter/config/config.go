@@ -29,10 +29,12 @@ type LogConfig struct {
 }
 
 type Yandex struct {
-	APIKey  string        `env:"APIKEY" env-required:"true"`
-	BaseURL string        `env:"BASE_URL" env-default:"https://geocode-maps.yandex.ru/v1"`
-	Lang    string        `env:"LANG" env-default:"ru_RU"`
-	Timeout time.Duration `env:"TIMEOUT" env-default:"5s"`
+	APIKey   string        `env:"APIKEY"`
+	BaseURL  string        `env:"BASE_URL" env-default:"https://geocode-maps.yandex.ru/v1"`
+	Lang     string        `env:"LANG" env-default:"ru_RU"`
+	Timeout  time.Duration `env:"TIMEOUT" env-default:"5s"`
+	UseStub  bool          `env:"USE_STUB" env-default:"false"`
+	StubFile string        `env:"STUB_FILE"`
 }
 
 func MustLoad() *Config {
