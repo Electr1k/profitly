@@ -22,18 +22,22 @@ type Config struct {
 
 type Client struct {
 	apiKey     string
-	baseURL    string
+	baseURL    *url.URL
 	lang       string
 	httpClient *http.Client
 }
 
-func NewClient(cfg Config) *Client {
+func NewClient(cfg Config) (*Client, error) {
+	u, err := url.Parse(cfg.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse yandex base url %q: %w", cfg.BaseURL, err)
+	}
 	return &Client{
 		apiKey:     cfg.APIKey,
-		baseURL:    cfg.BaseURL,
+		baseURL:    u,
 		lang:       cfg.Lang,
 		httpClient: &http.Client{Timeout: cfg.Timeout},
-	}
+	}, nil
 }
 
 type GeocodeParams struct {
@@ -54,7 +58,7 @@ func (c *Client) Geocode(ctx context.Context, p GeocodeParams) (GeocodeResult, e
 	q.Set("apikey", c.apiKey)
 	q.Set("format", "json")
 	q.Set("lang", c.lang)
-	q.Set("geocode", strconv.FormatFloat(p.Lng, 'f', -1, 64)+","+strconv.FormatFloat(p.Lat, 'f', -1, 64))
+	q.Set("geocode", formatGeocode(p.Lng, p.Lat))
 	if p.Results > 0 {
 		q.Set("results", strconv.Itoa(p.Results))
 	}
@@ -65,8 +69,7 @@ func (c *Client) Geocode(ctx context.Context, p GeocodeParams) (GeocodeResult, e
 		q.Set("kind", p.Kind)
 	}
 
-	endpoint := c.baseURL + "?" + q.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.buildURL("", q), nil)
 	if err != nil {
 		return GeocodeResult{}, fmt.Errorf("build request: %w", err)
 	}
@@ -87,4 +90,14 @@ func (c *Client) Geocode(ctx context.Context, p GeocodeParams) (GeocodeResult, e
 		return GeocodeResult{}, fmt.Errorf("decode response: %w", err)
 	}
 	return toGeocodeResult(&out), nil
+}
+
+func (c *Client) buildURL(path string, q url.Values) string {
+	u := c.baseURL.JoinPath(path)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func formatGeocode(lng, lat float64) string {
+	return strconv.FormatFloat(lng, 'f', -1, 64) + "," + strconv.FormatFloat(lat, 'f', -1, 64)
 }

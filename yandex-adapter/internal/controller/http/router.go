@@ -16,7 +16,7 @@ func NewRouter(geocode *GeocodeHandler) chi.Router {
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/geocode", geocode.Handle)
+		r.Get("/geocode", geocode.Handle)
 	})
 
 	return r

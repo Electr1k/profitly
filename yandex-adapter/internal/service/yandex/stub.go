@@ -7,23 +7,21 @@ import (
 	"os"
 )
 
-const (
-	GeocodePath = "testdata/geocode.json"
-)
+const geocodeStubPath = "internal/service/yandex/testdata/geocode.json"
 
 type Stub struct {
 	geocode GeocodeResult
 }
 
 func NewStub() (*Stub, error) {
-	data, err := os.ReadFile(GeocodePath)
+	data, err := os.ReadFile(geocodeStubPath)
 	if err != nil {
-		return nil, fmt.Errorf("error on read geocode %w", err)
+		return nil, fmt.Errorf("read geocode stub: %w", err)
 	}
 
 	var resp GeocodeResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("error on parse geocode %w", err)
+		return nil, fmt.Errorf("parse geocode stub: %w", err)
 	}
 
 	return &Stub{geocode: toGeocodeResult(&resp)}, nil

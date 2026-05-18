@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"yandex-adapter/internal/entity"
 	"yandex-adapter/internal/usecase/geocode"
@@ -27,14 +30,6 @@ type GeocodeHandler struct {
 
 func NewGeocodeHandler(uc GeocodeUseCase, log *slog.Logger) *GeocodeHandler {
 	return &GeocodeHandler{uc: uc, log: log}
-}
-
-type geocodeRequestDTO struct {
-	Lng    *float64 `json:"lng"`
-	Lat    *float64 `json:"lat"`
-	Limit  *int     `json:"limit"`
-	Offset *int     `json:"offset"`
-	Kind   *string  `json:"kind"`
 }
 
 type geoObjectDTO struct {
@@ -64,15 +59,7 @@ type geocodeResponseDTO struct {
 }
 
 func (h *GeocodeHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	var body geocodeRequestDTO
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
-		return
-	}
-
-	req, err := parseRequest(body)
+	req, err := parseRequest(r.URL.Query())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -88,47 +75,67 @@ func (h *GeocodeHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toResponseDTO(res))
 }
 
-func parseRequest(b geocodeRequestDTO) (geocode.Input, error) {
-	if b.Lng == nil || b.Lat == nil {
+func parseRequest(q url.Values) (geocode.Input, error) {
+	lngStr := q.Get("lng")
+	latStr := q.Get("lat")
+	if lngStr == "" || latStr == "" {
 		return geocode.Input{}, errors.New("lng and lat are required")
 	}
-	if *b.Lng < -180 || *b.Lng > 180 {
+
+	lng, err := strconv.ParseFloat(lngStr, 64)
+	if err != nil {
+		return geocode.Input{}, fmt.Errorf("lng: invalid float: %w", err)
+	}
+	if lng < -180 || lng > 180 {
 		return geocode.Input{}, errors.New("lng must be in [-180, 180]")
 	}
-	if *b.Lat < -90 || *b.Lat > 90 {
+
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		return geocode.Input{}, fmt.Errorf("lat: invalid float: %w", err)
+	}
+	if lat < -90 || lat > 90 {
 		return geocode.Input{}, errors.New("lat must be in [-90, 90]")
 	}
 
 	limit := defaultLimit
-	if b.Limit != nil {
-		if *b.Limit < 1 {
+	if s := q.Get("limit"); s != "" {
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return geocode.Input{}, fmt.Errorf("limit: invalid int: %w", err)
+		}
+		if v < 1 {
 			return geocode.Input{}, errors.New("limit must be >= 1")
 		}
-		limit = *b.Limit
+		limit = v
 		if limit > maxLimit {
 			limit = maxLimit
 		}
 	}
 
 	offset := 0
-	if b.Offset != nil {
-		if *b.Offset < 0 {
+	if s := q.Get("offset"); s != "" {
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return geocode.Input{}, fmt.Errorf("offset: invalid int: %w", err)
+		}
+		if v < 0 {
 			return geocode.Input{}, errors.New("offset must be >= 0")
 		}
-		offset = *b.Offset
+		offset = v
 	}
 
 	var kind entity.Kind
-	if b.Kind != nil && *b.Kind != "" {
-		kind = entity.Kind(*b.Kind)
+	if s := q.Get("kind"); s != "" {
+		kind = entity.Kind(s)
 		if !kind.Valid() {
 			return geocode.Input{}, errors.New("kind must be one of: house, street, metro, district, locality")
 		}
 	}
 
 	return geocode.Input{
-		Lng:    *b.Lng,
-		Lat:    *b.Lat,
+		Lng:    lng,
+		Lat:    lat,
 		Limit:  limit,
 		Offset: offset,
 		Kind:   kind,

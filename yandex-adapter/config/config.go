@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -29,12 +30,18 @@ type LogConfig struct {
 }
 
 type Yandex struct {
-	APIKey   string        `env:"APIKEY"`
-	BaseURL  string        `env:"BASE_URL" env-default:"https://geocode-maps.yandex.ru/v1"`
-	Lang     string        `env:"LANG" env-default:"ru_RU"`
-	Timeout  time.Duration `env:"TIMEOUT" env-default:"5s"`
-	UseStub  bool          `env:"USE_STUB" env-default:"false"`
-	StubFile string        `env:"STUB_FILE"`
+	APIKey  string        `env:"APIKEY"`
+	BaseURL string        `env:"BASE_URL" env-default:"https://geocode-maps.yandex.ru/v1"`
+	Lang    string        `env:"LANG" env-default:"ru_RU"`
+	Timeout time.Duration `env:"TIMEOUT" env-default:"5s"`
+	UseStub bool          `env:"USE_STUB" env-default:"false"`
+}
+
+func (c *Config) Validate() error {
+	if !c.Yandex.UseStub && c.Yandex.APIKey == "" {
+		return errors.New("YANDEX_APIKEY must be set (or enable YANDEX_USE_STUB)")
+	}
+	return nil
 }
 
 func MustLoad() *Config {
@@ -46,6 +53,10 @@ func MustLoad() *Config {
 
 	if err := cleanenv.ReadEnv(&cfg); err != nil {
 		log.Fatalf("cannot read config: %s", err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid config: %s", err)
 	}
 
 	return &cfg

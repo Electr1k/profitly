@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -60,9 +59,6 @@ func (a *App) Run(ctx context.Context) error {
 
 func (a *App) buildYandexClient() (geocodeuc.YandexClient, error) {
 	if a.cfg.Yandex.UseStub {
-		if a.cfg.Yandex.StubFile == "" {
-			return nil, errors.New("YANDEX_STUB_FILE must be set when YANDEX_USE_STUB=true")
-		}
 		stub, err := yandex.NewStub()
 		if err != nil {
 			return nil, err
@@ -71,13 +67,10 @@ func (a *App) buildYandexClient() (geocodeuc.YandexClient, error) {
 		return stub, nil
 	}
 
-	if a.cfg.Yandex.APIKey == "" {
-		return nil, errors.New("YANDEX_APIKEY must be set (or enable YANDEX_USE_STUB)")
-	}
 	return yandex.NewClient(yandex.Config{
 		APIKey:  a.cfg.Yandex.APIKey,
 		BaseURL: a.cfg.Yandex.BaseURL,
 		Lang:    a.cfg.Yandex.Lang,
 		Timeout: a.cfg.Yandex.Timeout,
-	}), nil
+	})
 }
